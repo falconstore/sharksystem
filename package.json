@@ -1,0 +1,17 @@
+{
+  "name": "freepro-system",
+  "version": "1.0.0",
+  "description": "FreePro - Sistema de Controle de Clientes",
+  "main": "src/index.html",
+  "scripts": {
+    "dev": "npx serve src",
+    "build": "cp -r src/* public/",
+    "start": "npx serve public"
+  },
+  "keywords": ["firebase", "client-management"],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "serve": "^14.2.0"
+  }
+}
