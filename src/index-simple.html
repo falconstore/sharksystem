@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FreePro - Controle de Clientes</title>
+  
+  <!-- CSS Principal -->
+  <link rel="stylesheet" href="styles/main.css">
+  
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar" id="appSidebar">
+    <div class="brand">
+      <div style="font-size:1.3rem">🦈</div>
+      <h1>FreePro</h1>
+    </div>
+    <div class="nav-section-title">Páginas</div>
+    <nav class="nav" id="tabNav">
+      <button data-tab="dashboard" class="active">📊 Dashboard</button>
+      <button data-tab="controle-semanal">📆 Controle Semanal</button>
+      <button data-tab="controle-procedimentos">🧩 Controle Procedimentos</button>
+      <button data-tab="construcao-1">🚧 Em Construção 1</button>
+      <button data-tab="construcao-2">🚧 Em Construção 2</button>
+      <button data-tab="construcao-3">🚧 Em Construção 3</button>
+      <button data-tab="construcao-4">🚧 Em Construção 4</button>
+    </nav>
+    <div class="sidebar-footer">
+      <span class="user-email" id="userEmailLbl">Local Mode</span>
+      <button id="themeToggle" class="theme-toggle">☀️ Claro</button>
+    </div>
+  </aside>
+
+  <!-- Conteúdo -->
+  <div class="content">
+    <header class="header">
+      <div class="container">
+        <div class="header-row">
+          <div>
+            <div class="title" id="pageTitle">📊 Dashboard</div>
+            <div class="subtitle" id="pageSubtitle">Resumo geral e atalhos</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main visível por padrão -->
+    <main class="main" id="appMain">
+      <div class="container">
+        <!-- Dashboard -->
+        <section id="tab-dashboard">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">👋 Bem-vindo <span id="welcomeName">Usuário</span></div>
+                <div class="card-subtitle">Aqui você acompanha um resumo rápido do sistema</div>
+              </div>
+            </div>
+            <div class="grid-4">
+              <div class="card"><div class="card-title">Card 1</div><div class="card-subtitle">Conteúdo futuro</div></div>
+              <div class="card"><div class="card-title">Card 2</div><div class="card-subtitle">Conteúdo futuro</div></div>
+              <div class="card"><div class="card-title">Card 3</div><div class="card-subtitle">Conteúdo futuro</div></div>
+              <div class="card"><div class="card-title">Card 4</div><div class="card-subtitle">Conteúdo futuro</div></div>
+              <div class="card"><div class="card-title">Card 5</div><div class="card-subtitle">Conteúdo futuro</div></div>
+              <div class="card"><div class="card-title">Card 6</div><div class="card-subtitle">Conteúdo futuro</div></div>
+              <div class="card"><div class="card-title">Card 7</div><div class="card-subtitle">Conteúdo futuro</div></div>
+              <div class="card"><div class="card-title">Card 8</div><div class="card-subtitle">Conteúdo futuro</div></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Controle Semanal -->
+        <section id="tab-controle-semanal" style="display:none">
+          <div class="stats-grid">
+            <div class="stat-card"><div class="stat-number" id="totalClientes">0</div><div class="stat-label">Total de Clientes</div></div>
+            <div class="stat-card"><div class="stat-number" id="clientesAtivos">0</div><div class="stat-label">Clientes Ativos</div></div>
+            <div class="stat-card"><div class="stat-number" id="clientesVencendo">0</div><div class="stat-label">Vencendo (≤3 dias)</div></div>
+            <div class="stat-card"><div class="stat-number" id="clientesVencidos">0</div><div class="stat-label">Vencidos</div></div>
+            <div class="stat-card"><div class="stat-number" id="receitaTotal">R$ 0,00</div><div class="stat-label">Receita Total</div></div>
+            <div class="stat-card"><div class="stat-number" id="receitaMensal">R$ 0,00</div><div class="stat-label">Receita Mensal</div></div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">📋 Lista de Clientes</div>
+                <div class="card-subtitle">Teste do sistema</div>
+              </div>
+            </div>
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Cliente</th>
+                    <th>Valor Pago</th>
+                    <th>Telegram</th>
+                    <th>Data da Venda</th>
+                    <th>Duração</th>
+                    <th>Status</th>
+                    <th>Grupo</th>
+                    <th>Pagamento</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="clientesTableBody"></tbody>
+              </table>
+              <div id="emptyState" class="empty-state">Nenhum cliente encontrado</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Controle Procedimentos -->
+        <section id="tab-controle-procedimentos" style="display:none">
+          <!-- Estatísticas -->
+          <div class="stats-grid" id="procedStats">
+            <div class="stat-card">
+              <div class="stat-number">0</div>
+              <div class="stat-label">Total de Procedimentos</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-number">0</div>
+              <div class="stat-label">Finalizados</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-number">0</div>
+              <div class="stat-label">Pendentes</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-number">R$ 0,00</div>
+              <div class="stat-label">Valor Total</div>
+            </div>
+          </div>
+
+          <!-- Formulário -->
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">🧩 Controle de Procedimentos</div>
+                <div class="card-subtitle">Cadastre e acompanhe procedimentos</div>
+              </div>
+            </div>
+            <div class="form-grid">
+              <div>
+                <label class="card-subtitle">Data</label>
+                <input type="date" id="procData" class="form-input">
+              </div>
+              <div>
+                <label class="card-subtitle">Procedimento (nº)</label>
+                <input type="number" id="procNumero" class="form-input" placeholder="Ex: 101" min="1">
+              </div>
+              <div>
+                <label class="card-subtitle">Plataforma</label>
+                <input id="procPlataforma" class="form-input" placeholder="Nome da plataforma">
+              </div>
+              <div>
+                <label class="card-subtitle">Nome da Promoção</label>
+                <input id="procNomePromocao" class="form-input" placeholder="Ex: Super Bônus">
+              </div>
+              <div>
+                <label class="card-subtitle">Categoria</label>
+                <select id="procCategoria" class="form-select">
+                  <option value="superodd">Superodd</option>
+                  <option value="promocao">Promoção</option>
+                  <option value="freebet">Freebet</option>
+                </select>
+              </div>
+              <div>
+                <label class="card-subtitle">Status</label>
+                <select id="procStatus" class="form-select">
+                  <option value="enviada_partida_em_aberto">Partida em Aberto</option>
+                  <option value="falta_girar_freebet">Falta Girar Freebet</option>
+                  <option value="lucro_direto">Lucro Direto</option>
+                  <option value="finalizado">Finalizado</option>
+                  <option value="falta_enviar">Falta Enviar</option>
+                  <option value="aposta_sem_risco">Aposta sem Risco</option>
+                </select>
+              </div>
+              <div>
+                <label class="card-subtitle">Ref. Freebet</label>
+                <input id="procRefFreebet" class="form-input" placeholder="Ex: FB-12345">
+              </div>
+              <div>
+                <label class="card-subtitle">Valor Freebet</label>
+                <input type="number" id="procValorFreebet" class="form-input" step="0.01" min="0" placeholder="0,00">
+              </div>
+              <div>
+                <label class="card-subtitle">Valor Final</label>
+                <input type="number" id="procValorFinal" class="form-input" step="0.01" min="0" placeholder="0,00">
+              </div>
+              
+              <div class="form-actions" style="grid-column:1/-1">
+                <button class="btn btn-secondary" id="btnProcClear">🔄 Limpar</button>
+                <button class="btn btn-primary" id="btnProcAdd">➕ Adicionar</button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Lista de Procedimentos -->
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">📚 Lista de Procedimentos</div>
+                <div class="card-subtitle">Gerencie seus procedimentos cadastrados</div>
+              </div>
+              <div style="display:flex; gap:0.5rem;">
+                <input type="text" id="procSearch" class="form-input" placeholder="🔍 Buscar..." style="width:200px;">
+                <select id="procStatusFilter" class="form-select" style="width:180px;">
+                  <option value="todos">Todos os Status</option>
+                  <option value="enviada_partida_em_aberto">Partida em Aberto</option>
+                  <option value="falta_girar_freebet">Falta Girar Freebet</option>
+                  <option value="lucro_direto">Lucro Direto</option>
+                  <option value="finalizado">Finalizado</option>
+                  <option value="falta_enviar">Falta Enviar</option>
+                  <option value="aposta_sem_risco">Aposta sem Risco</option>
+                </select>
+                <button class="btn btn-secondary" onclick="procedimentosSystem.exportToCSV()">📥 Exportar CSV</button>
+              </div>
+            </div>
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Nº</th>
+                    <th>Plataforma</th>
+                    <th>Promoção</th>
+                    <th>Categoria</th>
+                    <th>Status</th>
+                    <th>Ref. Freebet</th>
+                    <th>Valor Freebet</th>
+                    <th>Valor Final</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="procedTableBody"></tbody>
+              </table>
+              <div id="procedEmpty" class="empty-state">Nenhum procedimento cadastrado</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Em Construção -->
+        <section id="tab-construcao-1" style="display:none">
+          <div class="card"><div class="card-title">🚧 Em Construção 1</div></div>
+        </section>
+        <section id="tab-construcao-2" style="display:none">
+          <div class="card"><div class="card-title">🚧 Em Construção 2</div></div>
+        </section>
+        <section id="tab-construcao-3" style="display:none">
+          <div class="card"><div class="card-title">🚧 Em Construção 3</div></div>
+        </section>
+        <section id="tab-construcao-4" style="display:none">
+          <div class="card"><div class="card-title">🚧 Em Construção 4</div></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- Script Inline Simples que FUNCIONA -->
+  <script src="js/procedimentos-completo.js"></script>
+  <script>
+    // Firebase config
+    firebase.initializeApp({
+      apiKey: "AIzaSyC6-O6BnUXGzwXwcRM_wRYwGUNFuRpT7NI",
+      authDomain: "calculadora-free-pro.firebaseapp.com",
+      projectId: "calculadora-free-pro",
+      storageBucket: "calculadora-free-pro.firebasestorage.app",
+      messagingSenderId: "313485499345",
+      appId: "1:313485499345:web:05a2db4142512691129ef0"
+    });
+
+    const db = firebase.firestore();
+
+    // Sistema de Tabs SIMPLES
+    document.getElementById('tabNav').addEventListener('click', (e) => {
+      if (e.target.tagName === 'BUTTON') {
+        const tab = e.target.getAttribute('data-tab');
+        
+        // Remove active de todos
+        document.querySelectorAll('#tabNav button').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        
+        // Esconde todas as sections
+        document.querySelectorAll('section[id^="tab-"]').forEach(s => s.style.display = 'none');
+        
+        // Mostra a section selecionada
+        const section = document.getElementById('tab-' + tab);
+        if (section) section.style.display = 'block';
+        
+        // Atualiza título
+        document.getElementById('pageTitle').textContent = e.target.textContent;
+        
+        console.log('Tab mudou para:', tab);
+      }
+    });
+
+    // Tema
+    document.getElementById('themeToggle').addEventListener('click', function() {
+      const isDark = !document.body.hasAttribute('data-theme');
+      if (isDark) {
+        document.body.setAttribute('data-theme', 'light');
+        this.textContent = '🌙 Escuro';
+      } else {
+        document.body.removeAttribute('data-theme');
+        this.textContent = '☀️ Claro';
+      }
+    });
+
+    // ===================== SISTEMA DE PROCEDIMENTOS COMPLETO =====================
+    const procedimentosSystem = new ProcedimentosSystem();
+    
+    // Inicializa com ou sem Firebase (funciona dos dois jeitos)
+    try {
+      procedimentosSystem.init(db); // Tenta com Firebase
+    } catch (e) {
+      console.log('Rodando procedimentos em modo local');
+      procedimentosSystem.init(null); // Roda local se falhar
+    }
+
+    // Dados de teste para procedimentos
+    if (procedimentosSystem.procedimentos.length === 0) {
+      // Adiciona alguns dados de exemplo
+      const exemplosProcedimentos = [
+        {
+          id: 'proc_ex1',
+          data: '2024-01-15',
+          numero: 101,
+          plataforma: 'Bet365',
+          promocao: 'Super Odd Flamengo',
+          categoria: 'superodd',
+          status: 'finalizado',
+          refFreebet: 'FB-2024-001',
+          valorFreebet: 50,
+          valorFinal: 150,
+          createdAt: new Date().toISOString()
+        },
+        {
+          id: 'proc_ex2',
+          data: '2024-01-14',
+          numero: 100,
+          plataforma: 'Betano',
+          promocao: 'Freebet Champions',
+          categoria: 'freebet',
+          status: 'falta_girar_freebet',
+          refFreebet: 'FB-2024-002',
+          valorFreebet: 100,
+          valorFinal: 0,
+          createdAt: new Date().toISOString()
+        },
+        {
+          id: 'proc_ex3',
+          data: '2024-01-13',
+          numero: 99,
+          plataforma: 'Sportingbet',
+          promocao: 'Promoção de Boas-vindas',
+          categoria: 'promocao',
+          status: 'lucro_direto',
+          refFreebet: '',
+          valorFreebet: 0,
+          valorFinal: 200,
+          createdAt: new Date().toISOString()
+        }
+      ];
+      
+      procedimentosSystem.procedimentos = exemplosProcedimentos;
+      procedimentosSystem.render();
+      procedimentosSystem.updateStats();
+    }
+
+    // ===================== CLIENTES =====================
+    // Dados de teste para clientes
+    const clientesTeste = [
+      { id: '1', nome: 'João Silva', valorPago: 150, telegram: '@joao', dataVenda: '2024-01-15', duracao: 30, statusGrupo: 'no_grupo', metodoPagamento: 'pix' },
+      { id: '2', nome: 'Maria Santos', valorPago: 200, telegram: '@maria', dataVenda: '2024-01-10', duracao: 7, statusGrupo: 'no_grupo', metodoPagamento: 'cartao' },
+      { id: '3', nome: 'Pedro Costa', valorPago: 300, telegram: '@pedro', dataVenda: '2024-01-05', duracao: 30, statusGrupo: 'no_grupo', metodoPagamento: 'pix' }
+    ];
+
+    // Renderizar clientes de teste
+    function renderClientes() {
+      const tbody = document.getElementById('clientesTableBody');
+      if (!tbody) return;
+      
+      tbody.innerHTML = clientesTeste.map(c => `
+        <tr>
+          <td>${c.nome}</td>
+          <td>R$ ${c.valorPago},00</td>
+          <td><a href="https://t.me/${c.telegram.slice(1)}" target="_blank" class="btn-link">🔗 link</a></td>
+          <td>${new Date(c.dataVenda).toLocaleDateString('pt-BR')}</td>
+          <td>${c.duracao} dias</td>
+          <td><span class="status-badge badge-success">Ativo</span></td>
+          <td><span class="status-badge badge-success">No grupo</span></td>
+          <td>${c.metodoPagamento}</td>
+          <td><button class="btn btn-secondary">✏️ Editar</button></td>
+        </tr>
+      `).join('');
+      
+      // Atualiza estatísticas
+      document.getElementById('totalClientes').textContent = clientesTeste.length;
+      document.getElementById('clientesAtivos').textContent = clientesTeste.length;
+      document.getElementById('receitaTotal').textContent = 'R$ 650,00';
+      document.getElementById('receitaMensal').textContent = 'R$ 650,00';
+    }
+
+    // Renderiza quando muda para aba de clientes
+    document.addEventListener('click', (e) => {
+      if (e.target.getAttribute('data-tab') === 'controle-semanal') {
+        setTimeout(renderClientes, 100);
+      }
+    });
+
+    console.log('Sistema carregado! Procedimentos completo funcionando.');
+  </script>
+</body>
+</html>

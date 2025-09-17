@@ -1,1 +1,1326 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FreePro - Controle de Clientes</title>
+  
+  <!-- CSS Principal -->
+  <link rel="stylesheet" href="styles/main.css">
+  
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 
+  <style>
+    /* Login Form Styles */
+    .login-container {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: var(--bg-secondary);
+      padding: 2rem;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      width: 90%;
+      max-width: 400px;
+      z-index: 1000;
+    }
+    
+    .login-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 999;
+    }
+    
+    .login-header {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+    
+    .login-form {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    
+    .auth-status {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      padding: 0.5rem 1rem;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      z-index: 100;
+    }
+    
+    .auth-status.logged-in {
+      border-color: var(--success);
+      background: rgba(34, 197, 94, 0.1);
+    }
+  </style>
+</head>
+<body>
+  <!-- Login Form -->
+  <div id="loginOverlay" class="login-overlay" style="display:none;">
+    <div class="login-container">
+      <div class="login-header">
+        <h2>🦈 FreePro - Login</h2>
+        <p style="color: var(--text-secondary);">Entre com sua conta Firebase</p>
+      </div>
+      <form id="loginForm" class="login-form" onsubmit="handleLogin(event)">
+        <input type="email" id="loginEmail" class="form-input" placeholder="Email" required>
+        <input type="password" id="loginPassword" class="form-input" placeholder="Senha" required>
+        <button type="submit" class="btn btn-primary" id="loginBtn">🔐 Entrar</button>
+        <button type="button" class="btn btn-secondary" onclick="loginAnonimo()">👤 Entrar Anônimo</button>
+      </form>
+      <div style="margin-top: 1rem; text-align: center;">
+        <small style="color: var(--text-muted);">
+          Ou <a href="#" onclick="toggleCreateAccount()" style="color: var(--primary);">criar nova conta</a>
+        </small>
+      </div>
+      
+      <!-- Create Account Form (Hidden by default) -->
+      <form id="createAccountForm" class="login-form" style="display:none; margin-top:1rem;" onsubmit="handleCreateAccount(event)">
+        <h3>Criar Nova Conta</h3>
+        <input type="email" id="createEmail" class="form-input" placeholder="Email" required>
+        <input type="password" id="createPassword" class="form-input" placeholder="Senha (mín. 6 caracteres)" required minlength="6">
+        <button type="submit" class="btn btn-primary">✨ Criar Conta</button>
+        <button type="button" class="btn btn-secondary" onclick="toggleCreateAccount()">Voltar</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Status de Autenticação -->
+  <div id="authStatus" class="auth-status" style="display:none;">
+    <span id="authStatusText">Não autenticado</span>
+    <button id="logoutBtn" class="btn btn-danger" onclick="handleLogout()" style="display:none;">Sair</button>
+  </div>
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="appSidebar">
+    <div class="brand">
+      <div style="font-size:1.3rem">🦈</div>
+      <h1>FreePro</h1>
+    </div>
+    <div class="nav-section-title">Páginas</div>
+    <nav class="nav" id="tabNav">
+      <button data-tab="dashboard" class="active">📊 Dashboard</button>
+      <button data-tab="controle-semanal">📆 Controle Semanal</button>
+      <button data-tab="controle-procedimentos">🧩 Controle Procedimentos</button>
+      <button data-tab="arbipro">🎯 ArbiPro</button>
+      <button data-tab="casas-regulamentadas">🏛️ Casas Regulamentadas</button>
+      <button data-tab="construcao-1">🚧 Em Construção 1</button>
+      <button data-tab="construcao-2">🚧 Em Construção 2</button>
+    </nav>
+    <div class="sidebar-footer">
+      <span class="user-email" id="userEmailLbl">Carregando...</span>
+      <button id="themeToggle" class="theme-toggle">☀️ Claro</button>
+    </div>
+  </aside>
+
+  <!-- Conteúdo Principal (Hidden até login) -->
+  <div class="content">
+    <header class="header">
+      <div class="container">
+        <div class="header-row">
+          <div>
+            <div class="title" id="pageTitle">📊 Dashboard</div>
+            <div class="subtitle" id="pageSubtitle">Resumo geral e atalhos</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="main" id="appMain" style="display:none;">
+      <div class="container">
+        <!-- Dashboard -->
+        <section id="tab-dashboard">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">👋 Bem-vindo <span id="welcomeName">Usuário</span></div>
+                <div class="card-subtitle">Sistema conectado ao Firebase ✅</div>
+              </div>
+            </div>
+            <div class="grid-4">
+              <div class="card"><div class="card-title">Card 1</div></div>
+              <div class="card"><div class="card-title">Card 2</div></div>
+              <div class="card"><div class="card-title">Card 3</div></div>
+              <div class="card"><div class="card-title">Card 4</div></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Controle Semanal -->
+        <section id="tab-controle-semanal" style="display:none">
+          <!-- Estatísticas -->
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-number" id="totalClientes">0</div>
+              <div class="stat-label">Total de Clientes</div>
+            </div>
+            <div class="stat-card" style="border-left: 3px solid var(--success);">
+              <div class="stat-number" id="clientesAtivos" style="color: var(--success);">0</div>
+              <div class="stat-label">Clientes Ativos</div>
+            </div>
+            <div class="stat-card" style="border-left: 3px solid var(--warning);">
+              <div class="stat-number" id="clientesVencendo" style="color: var(--warning);">0</div>
+              <div class="stat-label">Vencendo (≤3 dias)</div>
+            </div>
+            <div class="stat-card" style="border-left: 3px solid var(--danger);">
+              <div class="stat-number" id="clientesVencidos" style="color: var(--danger);">0</div>
+              <div class="stat-label">Vencidos</div>
+            </div>
+            <div class="stat-card" style="border-left: 3px solid var(--info);">
+              <div class="stat-number" id="receitaTotal" style="color: var(--info);">R$ 0,00</div>
+              <div class="stat-label">Receita Total</div>
+            </div>
+            <div class="stat-card" style="border-left: 3px solid var(--primary);">
+              <div class="stat-number" id="receitaMensal" style="color: var(--primary);">R$ 0,00</div>
+              <div class="stat-label">Receita Mensal</div>
+            </div>
+          </div>
+
+          <!-- Filtros -->
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">🔍 Filtros de Clientes</div>
+              </div>
+            </div>
+            <div class="form-grid" style="gap: 0.8rem;">
+              <div>
+                <label class="card-subtitle">Buscar</label>
+                <input type="text" id="buscarNome" class="form-input" placeholder="Nome, email ou telegram...">
+              </div>
+              <div>
+                <label class="card-subtitle">Status</label>
+                <select id="filtroStatus" class="form-select">
+                  <option value="">Todos</option>
+                  <option value="ativo">Ativos</option>
+                  <option value="vencendo">Vencendo (≤3 dias)</option>
+                  <option value="vencido">Vencidos</option>
+                </select>
+              </div>
+              <div>
+                <label class="card-subtitle">Grupo</label>
+                <select id="filtroGrupo" class="form-select">
+                  <option value="">Todos</option>
+                  <option value="no_grupo">No Grupo</option>
+                  <option value="removido">Removido</option>
+                  <option value="virou_mensal">Virou Mensal</option>
+                  <option value="virou_trimestral">Virou Trimestral</option>
+                </select>
+              </div>
+              <div>
+                <label class="card-subtitle">Duração</label>
+                <select id="filtroDuracao" class="form-select">
+                  <option value="">Todas</option>
+                  <option value="7">7 dias</option>
+                  <option value="30">30 dias</option>
+                  <option value="90">90 dias</option>
+                </select>
+              </div>
+              <div style="display: flex; gap: 0.5rem; align-items: flex-end;">
+                <button class="btn btn-secondary" onclick="clientesSystem.limparFiltros()" style="flex: 1;">🔄 Limpar</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Formulário de Cadastro -->
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">➕ Adicionar/Editar Cliente</div>
+                <div class="card-subtitle">Preencha os dados do cliente</div>
+              </div>
+            </div>
+            <form id="clienteForm">
+              <div class="form-grid">
+                <div>
+                  <label class="card-subtitle" for="nome">Nome *</label>
+                  <input type="text" id="nome" class="form-input" required placeholder="Nome completo">
+                </div>
+                <div>
+                  <label class="card-subtitle" for="email">Email</label>
+                  <input type="email" id="email" class="form-input" placeholder="email@exemplo.com">
+                </div>
+                <div>
+                  <label class="card-subtitle" for="telegram">Telegram/WhatsApp</label>
+                  <input type="text" id="telegram" class="form-input" placeholder="@usuario ou número">
+                </div>
+                <div>
+                  <label class="card-subtitle" for="dataVenda">Data da Venda *</label>
+                  <input type="date" id="dataVenda" class="form-input" required>
+                </div>
+                <div>
+                  <label class="card-subtitle" for="duracao">Duração</label>
+                  <select id="duracao" class="form-select" required>
+                    <option value="7">7 dias</option>
+                    <option value="30" selected>30 dias</option>
+                    <option value="90">90 dias</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="card-subtitle" for="valorPago">Valor Pago *</label>
+                  <input type="number" id="valorPago" class="form-input" required step="0.01" min="0" placeholder="0,00">
+                </div>
+                <div>
+                  <label class="card-subtitle" for="metodoPagamento">Método de Pagamento</label>
+                  <select id="metodoPagamento" class="form-select">
+                    <option value="">Selecione...</option>
+                    <option value="pix">PIX</option>
+                    <option value="cartao">Cartão de Crédito</option>
+                    <option value="boleto">Boleto</option>
+                    <option value="transferencia">Transferência</option>
+                    <option value="outro">Outro</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="card-subtitle" for="statusGrupo">Status no Grupo</label>
+                  <select id="statusGrupo" class="form-select">
+                    <option value="no_grupo">No Grupo</option>
+                    <option value="removido">Removido</option>
+                    <option value="virou_mensal">Virou Mensal</option>
+                    <option value="virou_trimestral">Virou Trimestral</option>
+                  </select>
+                </div>
+                <div style="grid-column: span 2;">
+                  <label class="card-subtitle" for="observacoes">Observações</label>
+                  <input type="text" id="observacoes" class="form-input" placeholder="Anotações adicionais...">
+                </div>
+                <div class="form-actions" style="grid-column: 1/-1;">
+                  <button type="button" class="btn btn-secondary" id="btnClienteClear">🔄 Limpar</button>
+                  <button type="submit" class="btn btn-primary" id="btnClienteAdd">➕ Adicionar Cliente</button>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <!-- Lista de Clientes -->
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">📋 Lista de Clientes</div>
+                <div class="card-subtitle">
+                  Mostrando <span id="countFiltradosClientes">0</span> clientes
+                </div>
+              </div>
+              <div>
+                <button class="btn btn-info" onclick="exportarClientes()">📥 Exportar CSV</button>
+              </div>
+            </div>
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Cliente</th>
+                    <th style="text-align:right;">Valor Pago</th>
+                    <th>Telegram</th>
+                    <th>Data da Venda</th>
+                    <th style="text-align:center;">Duração</th>
+                    <th>Status (venc.)</th>
+                    <th>Grupo</th>
+                    <th style="text-align:center;">Pagamento</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="clientesTableBody"></tbody>
+              </table>
+              <div id="emptyState" class="empty-state">Nenhum cliente encontrado</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Controle Procedimentos COM FIREBASE -->
+        <section id="tab-controle-procedimentos" style="display:none">
+          <!-- Cards de Estatísticas Detalhadas -->
+          <div class="stats-grid" id="procedStats">
+            <div class="stat-card">
+              <div class="stat-number" id="statTotal">0</div>
+              <div class="stat-label">Total de Procedimentos</div>
+            </div>
+            <div class="stat-card" style="border-left: 3px solid var(--warning);">
+              <div class="stat-number" id="statFaltaGirar" style="color: var(--warning);">0</div>
+              <div class="stat-label">Falta Girar Freebet</div>
+            </div>
+            <div class="stat-card" style="border-left: 3px solid var(--info);">
+              <div class="stat-number" id="statPartidasAbertas" style="color: var(--info);">0</div>
+              <div class="stat-label">Partidas em Aberto</div>
+            </div>
+            <div class="stat-card" style="border-left: 3px solid var(--success);">
+              <div class="stat-number" id="statFinalizados" style="color: var(--success);">0</div>
+              <div class="stat-label">Finalizados</div>
+            </div>
+          </div>
+
+          <!-- Gráfico de Performance -->
+          <div class="card" style="margin-bottom: 1rem;">
+            <div class="card-header">
+              <div>
+                <div class="card-title">📈 Performance e Análise</div>
+                <div class="card-subtitle">Visualização de lucros e totalizadores</div>
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <!-- Gráfico de Barras -->
+              <div>
+                <h4 style="font-size: 0.9rem; margin-bottom: 0.5rem;">Lucro por Período</h4>
+                <canvas id="chartPerformance" width="400" height="200"></canvas>
+              </div>
+              
+              <!-- Totalizadores -->
+              <div>
+                <h4 style="font-size: 0.9rem; margin-bottom: 0.5rem;">Totalizadores</h4>
+                <div id="totalizadores" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                  <!-- Por Status -->
+                  <div class="card" style="padding: 0.8rem; background: rgba(59, 130, 246, 0.1);">
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">Total por Status</div>
+                    <div id="totalPorStatus" style="font-size: 0.85rem; margin-top: 0.3rem;"></div>
+                  </div>
+                  
+                  <!-- Por Categoria -->
+                  <div class="card" style="padding: 0.8rem; background: rgba(34, 197, 94, 0.1);">
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">Total por Categoria</div>
+                    <div id="totalPorCategoria" style="font-size: 0.85rem; margin-top: 0.3rem;"></div>
+                  </div>
+                  
+                  <!-- Por Plataforma -->
+                  <div class="card" style="padding: 0.8rem; background: rgba(245, 158, 11, 0.1);">
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">Top 3 Plataformas</div>
+                    <div id="totalPorPlataforma" style="font-size: 0.85rem; margin-top: 0.3rem;"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Resumo de Lucro Total -->
+            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); text-align: center;">
+              <div style="display: flex; justify-content: space-around;">
+                <div>
+                  <div style="font-size: 0.75rem; color: var(--text-secondary);">Investido (Freebet)</div>
+                  <div style="font-size: 1.2rem; font-weight: bold; color: var(--warning);" id="totalInvestido">R$ 0,00</div>
+                </div>
+                <div>
+                  <div style="font-size: 0.75rem; color: var(--text-secondary);">Retorno Final</div>
+                  <div style="font-size: 1.2rem; font-weight: bold; color: var(--success);" id="totalRetorno">R$ 0,00</div>
+                </div>
+                <div>
+                  <div style="font-size: 0.75rem; color: var(--text-secondary);">Lucro Líquido</div>
+                  <div style="font-size: 1.4rem; font-weight: bold;" id="lucroLiquido">R$ 0,00</div>
+                </div>
+                <div>
+                  <div style="font-size: 0.75rem; color: var(--text-secondary);">ROI</div>
+                  <div style="font-size: 1.4rem; font-weight: bold;" id="roiPercentual">0%</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Filtros -->
+          <div class="card" style="margin-bottom: 1rem;">
+            <div class="card-header">
+              <div>
+                <div class="card-title">🔍 Filtros</div>
+              </div>
+            </div>
+            <div class="form-grid" style="gap: 0.8rem;">
+              <div>
+                <label class="card-subtitle">Buscar</label>
+                <input type="text" id="procSearchFilter" class="form-input" placeholder="Número, plataforma, promoção...">
+              </div>
+              <div>
+                <label class="card-subtitle">Período</label>
+                <select id="procPeriodoFilter" class="form-select">
+                  <option value="todos">Todos</option>
+                  <option value="hoje">Hoje</option>
+                  <option value="semana">Última Semana</option>
+                  <option value="mes">Último Mês</option>
+                  <option value="3meses">Últimos 3 Meses</option>
+                  <option value="custom">Personalizado</option>
+                </select>
+              </div>
+              <div id="customDateRange" style="display:none; grid-column: span 2;">
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                  <input type="date" id="procDataInicio" class="form-input" style="flex: 1;">
+                  <span>até</span>
+                  <input type="date" id="procDataFim" class="form-input" style="flex: 1;">
+                </div>
+              </div>
+              <div>
+                <label class="card-subtitle">Status</label>
+                <select id="procStatusFilter" class="form-select">
+                  <option value="todos">Todos</option>
+                  <option value="enviada_partida_em_aberto">Partida em Aberto</option>
+                  <option value="falta_girar_freebet">Falta Girar Freebet</option>
+                  <option value="lucro_direto">Lucro Direto</option>
+                  <option value="finalizado">Finalizado</option>
+                  <option value="falta_enviar">Falta Enviar</option>
+                  <option value="aposta_sem_risco">Aposta sem Risco</option>
+                </select>
+              </div>
+              <div>
+                <label class="card-subtitle">Categoria</label>
+                <select id="procCategoriaFilter" class="form-select">
+                  <option value="todos">Todas</option>
+                  <option value="superodd">Superodd</option>
+                  <option value="promocao">Promoção</option>
+                  <option value="freebet">Freebet</option>
+                </select>
+              </div>
+              <div>
+                <label class="card-subtitle">Plataforma</label>
+                <select id="procPlataformaFilter" class="form-select">
+                  <option value="todos">Todas</option>
+                </select>
+              </div>
+              <div style="display: flex; gap: 0.5rem; align-items: flex-end;">
+                <button class="btn btn-primary" onclick="aplicarFiltros()" style="flex: 1;">🔍 Filtrar</button>
+                <button class="btn btn-secondary" onclick="limparFiltros()" style="flex: 1;">🔄 Limpar</button>
+                <button class="btn btn-info" onclick="exportarFiltrados()" style="flex: 1;">📥 Exportar</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Formulário -->
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">🧩 Controle de Procedimentos</div>
+                <div class="card-subtitle">Salvando no Firebase em tempo real</div>
+              </div>
+            </div>
+            <div class="form-grid">
+              <div>
+                <label class="card-subtitle">Data</label>
+                <input type="date" id="procData" class="form-input">
+              </div>
+              <div>
+                <label class="card-subtitle">Número</label>
+                <input type="number" id="procNumero" class="form-input" placeholder="Ex: 101" min="1">
+              </div>
+              <div>
+                <label class="card-subtitle">Plataforma</label>
+                <input id="procPlataforma" class="form-input" list="plataformasList" placeholder="Digite ou selecione">
+                <datalist id="plataformasList">
+                  <option value="Bet365">
+                  <option value="Betano">
+                  <option value="Sportingbet">
+                  <option value="1xBet">
+                  <option value="Betfair">
+                  <option value="Pinnacle">
+                </datalist>
+              </div>
+              <div>
+                <label class="card-subtitle">Promoção</label>
+                <input id="procNomePromocao" class="form-input">
+              </div>
+              <div>
+                <label class="card-subtitle">Categoria</label>
+                <select id="procCategoria" class="form-select">
+                  <option value="superodd">Superodd</option>
+                  <option value="promocao">Promoção</option>
+                  <option value="freebet">Freebet</option>
+                </select>
+              </div>
+              <div>
+                <label class="card-subtitle">Status</label>
+                <select id="procStatus" class="form-select">
+                  <option value="enviada_partida_em_aberto">Partida em Aberto</option>
+                  <option value="falta_girar_freebet">Falta Girar Freebet</option>
+                  <option value="lucro_direto">Lucro Direto</option>
+                  <option value="finalizado">Finalizado</option>
+                  <option value="falta_enviar">Falta Enviar</option>
+                  <option value="aposta_sem_risco">Aposta sem Risco</option>
+                </select>
+              </div>
+              <div>
+                <label class="card-subtitle">Ref. Freebet</label>
+                <input id="procRefFreebet" class="form-input">
+              </div>
+              <div>
+                <label class="card-subtitle">Valor Freebet</label>
+                <input type="number" id="procValorFreebet" class="form-input" step="0.01" min="0">
+              </div>
+              <div>
+                <label class="card-subtitle">Valor Final</label>
+                <input type="number" id="procValorFinal" class="form-input" step="0.01" min="0">
+              </div>
+              <div class="form-actions" style="grid-column:1/-1">
+                <button class="btn btn-secondary" id="btnProcClear">🔄 Limpar</button>
+                <button class="btn btn-primary" id="btnProcAdd">➕ Adicionar</button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Lista de Procedimentos -->
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">📚 Lista de Procedimentos</div>
+                <div class="card-subtitle">
+                  Mostrando <span id="countFiltrados">0</span> de <span id="countTotal">0</span> procedimentos
+                </div>
+              </div>
+              <div id="totalValores" style="text-align: right;">
+                <div style="font-size: 0.85rem; color: var(--text-secondary);">Total Filtrado:</div>
+                <div style="font-size: 1.2rem; font-weight: bold; color: var(--success);" id="valorTotalFiltrado">R$ 0,00</div>
+              </div>
+            </div>
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th style="text-align:center;">Nº</th>
+                    <th>Plataforma</th>
+                    <th>Promoção</th>
+                    <th>Categoria</th>
+                    <th>Status</th>
+                    <th>Ref. Freebet</th>
+                    <th style="text-align:right;">Valor Freebet</th>
+                    <th style="text-align:right;">Valor Final</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="procedTableBody"></tbody>
+              </table>
+              <div id="procedEmpty" class="empty-state">Nenhum procedimento cadastrado</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ArbiPro Calculator -->
+        <section id="tab-arbipro" style="display:none">
+          <div id="panel-1">
+            <div id="app"></div>
+          </div>
+        </section>
+
+        <!-- Casas Regulamentadas -->
+        <section id="tab-casas-regulamentadas" style="display:none">
+          <div id="casas-content"></div>
+        </section>
+
+        <!-- Em Construção -->
+        <section id="tab-construcao-1" style="display:none">
+          <div class="card"><div class="card-title">🚧 Em Construção 1</div></div>
+        </section>
+        <section id="tab-construcao-2" style="display:none">
+          <div class="card"><div class="card-title">🚧 Em Construção 2</div></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/procedimentos-completo.js"></script>
+  <script src="js/clientes-completo.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+  <script>
+    // Firebase Config
+    firebase.initializeApp({
+      apiKey: "AIzaSyC6-O6BnUXGzwXwcRM_wRYwGUNFuRpT7NI",
+      authDomain: "calculadora-free-pro.firebaseapp.com",
+      projectId: "calculadora-free-pro",
+      storageBucket: "calculadora-free-pro.firebasestorage.app",
+      messagingSenderId: "313485499345",
+      appId: "1:313485499345:web:05a2db4142512691129ef0"
+    });
+
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+    let currentUser = null;
+    let procedimentosSystem = null;
+    let clientesSystem = null;
+
+    // ================ AUTENTICAÇÃO ================
+    
+    // Monitora estado de autenticação
+    auth.onAuthStateChanged((user) => {
+      currentUser = user;
+      
+      if (user) {
+        // USUÁRIO LOGADO
+        console.log('Usuário logado:', user.email || 'Anônimo');
+        
+        // Esconde login, mostra app
+        document.getElementById('loginOverlay').style.display = 'none';
+        document.getElementById('appMain').style.display = 'block';
+        
+        // Atualiza UI
+        document.getElementById('userEmailLbl').textContent = user.email || 'Anônimo';
+        document.getElementById('welcomeName').textContent = user.email ? user.email.split('@')[0] : 'Usuário';
+        
+        // Mostra status
+        const authStatus = document.getElementById('authStatus');
+        authStatus.style.display = 'flex';
+        authStatus.classList.add('logged-in');
+        document.getElementById('authStatusText').textContent = '✅ ' + (user.email || 'Anônimo');
+        document.getElementById('logoutBtn').style.display = 'block';
+        
+        // INICIALIZA SISTEMA DE PROCEDIMENTOS COM FIREBASE
+        if (!procedimentosSystem) {
+          procedimentosSystem = new ProcedimentosSystem();
+          procedimentosSystem.init(db);
+          
+          // Carrega procedimentos do Firebase
+          loadProcedimentosFromFirebase();
+        }
+        
+        // INICIALIZA SISTEMA DE CLIENTES COM FIREBASE
+        if (!clientesSystem) {
+          clientesSystem = new ClientesSystem();
+          clientesSystem.init(db);
+          
+          // Carrega clientes do Firebase
+          loadClientesFromFirebase();
+        }
+        
+      } else {
+        // NÃO LOGADO
+        console.log('Usuário não autenticado');
+        
+        // Mostra login, esconde app
+        document.getElementById('loginOverlay').style.display = 'block';
+        document.getElementById('appMain').style.display = 'none';
+        
+        // Atualiza UI
+        document.getElementById('userEmailLbl').textContent = 'Não logado';
+        document.getElementById('authStatus').style.display = 'none';
+      }
+    });
+
+    // Login com email/senha
+    async function handleLogin(event) {
+      event.preventDefault();
+      const email = document.getElementById('loginEmail').value;
+      const password = document.getElementById('loginPassword').value;
+      const btn = document.getElementById('loginBtn');
+      
+      btn.disabled = true;
+      btn.textContent = '⏳ Entrando...';
+      
+      try {
+        await auth.signInWithEmailAndPassword(email, password);
+        console.log('Login realizado com sucesso!');
+      } catch (error) {
+        console.error('Erro no login:', error);
+        alert('Erro no login: ' + error.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🔐 Entrar';
+      }
+    }
+
+    // Login anônimo
+    async function loginAnonimo() {
+      try {
+        await auth.signInAnonymously();
+        console.log('Login anônimo realizado!');
+      } catch (error) {
+        console.error('Erro no login anônimo:', error);
+        alert('Erro: ' + error.message);
+      }
+    }
+
+    // Criar conta
+    async function handleCreateAccount(event) {
+      event.preventDefault();
+      const email = document.getElementById('createEmail').value;
+      const password = document.getElementById('createPassword').value;
+      
+      try {
+        await auth.createUserWithEmailAndPassword(email, password);
+        alert('Conta criada com sucesso!');
+        toggleCreateAccount();
+      } catch (error) {
+        console.error('Erro ao criar conta:', error);
+        alert('Erro: ' + error.message);
+      }
+    }
+
+    // Toggle form de criar conta
+    function toggleCreateAccount() {
+      const loginForm = document.getElementById('loginForm');
+      const createForm = document.getElementById('createAccountForm');
+      
+      if (createForm.style.display === 'none') {
+        loginForm.style.display = 'none';
+        createForm.style.display = 'flex';
+      } else {
+        loginForm.style.display = 'flex';
+        createForm.style.display = 'none';
+      }
+    }
+
+    // Logout
+    async function handleLogout() {
+      if (confirm('Deseja realmente sair?')) {
+        try {
+          await auth.signOut();
+          console.log('Logout realizado');
+        } catch (error) {
+          console.error('Erro no logout:', error);
+        }
+      }
+    }
+
+    // ================ PROCEDIMENTOS COM FIREBASE ================
+    
+    async function loadProcedimentosFromFirebase() {
+      if (!currentUser || !db) return;
+      
+      try {
+        // Listener em tempo real
+        db.collection('procedimentos')
+          .orderBy('updatedAt', 'desc')
+          .limit(100)
+          .onSnapshot((snapshot) => {
+            procedimentosSystem.procedimentos = [];
+            snapshot.forEach(doc => {
+              procedimentosSystem.procedimentos.push({
+                id: doc.id,
+                ...doc.data()
+              });
+            });
+            procedimentosSystem.render();
+            procedimentosSystem.updateStats();
+            
+            // Atualiza contadores
+            document.getElementById('countFiltrados').textContent = procedimentosSystem.procedimentos.length;
+            document.getElementById('countTotal').textContent = procedimentosSystem.procedimentos.length;
+            
+            // Calcula valor total
+            const valorTotal = procedimentosSystem.procedimentos.reduce((sum, p) => sum + (p.valorFinal || 0), 0);
+            document.getElementById('valorTotalFiltrado').textContent = formatarMoeda(valorTotal);
+            
+            // Atualiza lista de plataformas
+            atualizarListaPlataformas();
+            
+            // Atualiza estatísticas detalhadas e gráficos
+            atualizarEstatisticasDetalhadas(procedimentosSystem.procedimentos);
+            
+            console.log('Procedimentos carregados do Firebase:', procedimentosSystem.procedimentos.length);
+          }, (error) => {
+            console.error('Erro ao carregar procedimentos:', error);
+          });
+      } catch (error) {
+        console.error('Erro:', error);
+      }
+    }
+
+    // ================ CLIENTES COM FIREBASE ================
+    
+    async function loadClientesFromFirebase() {
+      if (!currentUser || !db) return;
+      
+      try {
+        // Listener em tempo real para clientes
+        db.collection('clientes')
+          .orderBy('dataVenda', 'desc')
+          .limit(200)
+          .onSnapshot((snapshot) => {
+            clientesSystem.clientes = [];
+            snapshot.forEach(doc => {
+              clientesSystem.clientes.push({
+                id: doc.id,
+                ...doc.data()
+              });
+            });
+            
+            clientesSystem.render();
+            clientesSystem.updateStats();
+            
+            // Atualiza contador
+            document.getElementById('countFiltradosClientes').textContent = clientesSystem.clientes.length;
+            
+            console.log('Clientes carregados do Firebase:', clientesSystem.clientes.length);
+          }, (error) => {
+            console.error('Erro ao carregar clientes:', error);
+          });
+      } catch (error) {
+        console.error('Erro:', error);
+      }
+    }
+    
+    // Função para exportar clientes para CSV
+    function exportarClientes() {
+      if (!clientesSystem || !clientesSystem.clientes.length) {
+        alert('Nenhum cliente para exportar');
+        return;
+      }
+      
+      const headers = ['Nome', 'Email', 'Telegram', 'Data Venda', 'Duração', 'Valor Pago', 'Status Grupo', 'Método Pagamento', 'Observações'];
+      const rows = clientesSystem.clientes.map(c => [
+        c.nome || '',
+        c.email || '',
+        c.telegram || '',
+        c.dataVenda || '',
+        c.duracao || '',
+        c.valorPago || 0,
+        c.statusGrupo || '',
+        c.metodoPagamento || '',
+        c.observacoes || ''
+      ]);
+      
+      const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
+      const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `clientes_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    }
+
+    // ================ SISTEMA DE TABS ================
+    
+    document.getElementById('tabNav').addEventListener('click', (e) => {
+      if (e.target.tagName === 'BUTTON') {
+        const tab = e.target.getAttribute('data-tab');
+        
+        document.querySelectorAll('#tabNav button').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        
+        document.querySelectorAll('section[id^="tab-"]').forEach(s => s.style.display = 'none');
+        
+        const section = document.getElementById('tab-' + tab);
+        if (section) section.style.display = 'block';
+        
+        document.getElementById('pageTitle').textContent = e.target.textContent;
+      }
+    });
+
+    // ================ TEMA ================
+    
+    document.getElementById('themeToggle').addEventListener('click', function() {
+      const isDark = !document.body.hasAttribute('data-theme');
+      if (isDark) {
+        document.body.setAttribute('data-theme', 'light');
+        this.textContent = '🌙 Escuro';
+      } else {
+        document.body.removeAttribute('data-theme');
+        this.textContent = '☀️ Claro';
+      }
+    });
+
+    // ================ GRÁFICOS E TOTALIZADORES ================
+    
+    let chartPerformance = null;
+    
+    // Função para atualizar estatísticas detalhadas
+    function atualizarEstatisticasDetalhadas(dados) {
+      const procs = dados || procedimentosSystem?.procedimentos || [];
+      
+      // Contadores por status
+      const faltaGirar = procs.filter(p => p.status === 'falta_girar_freebet').length;
+      const partidasAbertas = procs.filter(p => p.status === 'enviada_partida_em_aberto').length;
+      const finalizados = procs.filter(p => p.status === 'finalizado').length;
+      
+      document.getElementById('statTotal').textContent = procs.length;
+      document.getElementById('statFaltaGirar').textContent = faltaGirar;
+      document.getElementById('statPartidasAbertas').textContent = partidasAbertas;
+      document.getElementById('statFinalizados').textContent = finalizados;
+      
+      // Cálculos financeiros
+      const totalInvestido = procs.reduce((sum, p) => sum + (p.valorFreebet || 0), 0);
+      const totalRetorno = procs.reduce((sum, p) => sum + (p.valorFinal || 0), 0);
+      const lucroLiquido = totalRetorno - totalInvestido;
+      const roi = totalInvestido > 0 ? (lucroLiquido / totalInvestido * 100) : 0;
+      
+      document.getElementById('totalInvestido').textContent = formatarMoeda(totalInvestido);
+      document.getElementById('totalRetorno').textContent = formatarMoeda(totalRetorno);
+      document.getElementById('lucroLiquido').textContent = formatarMoeda(lucroLiquido);
+      document.getElementById('lucroLiquido').style.color = lucroLiquido >= 0 ? 'var(--success)' : 'var(--danger)';
+      document.getElementById('roiPercentual').textContent = roi.toFixed(1) + '%';
+      document.getElementById('roiPercentual').style.color = roi >= 0 ? 'var(--success)' : 'var(--danger)';
+      
+      // Totalizadores por grupo
+      calcularTotalizadores(procs);
+      
+      // Atualizar gráfico
+      atualizarGraficoPerformance(procs);
+    }
+    
+    // Função para calcular totalizadores
+    function calcularTotalizadores(procs) {
+      // Por Status
+      const porStatus = {};
+      procs.forEach(p => {
+        if (!porStatus[p.status]) porStatus[p.status] = { count: 0, valor: 0 };
+        porStatus[p.status].count++;
+        porStatus[p.status].valor += p.valorFinal || 0;
+      });
+      
+      let htmlStatus = '';
+      Object.entries(porStatus).forEach(([status, data]) => {
+        const statusText = status.replace(/_/g, ' ');
+        htmlStatus += `<div style="display:flex; justify-content:space-between; margin-bottom:0.2rem;">
+          <span>${statusText}: ${data.count}</span>
+          <strong>${formatarMoeda(data.valor)}</strong>
+        </div>`;
+      });
+      document.getElementById('totalPorStatus').innerHTML = htmlStatus || 'Nenhum dado';
+      
+      // Por Categoria
+      const porCategoria = {};
+      procs.forEach(p => {
+        if (!porCategoria[p.categoria]) porCategoria[p.categoria] = { count: 0, valor: 0 };
+        porCategoria[p.categoria].count++;
+        porCategoria[p.categoria].valor += p.valorFinal || 0;
+      });
+      
+      let htmlCategoria = '';
+      Object.entries(porCategoria).forEach(([cat, data]) => {
+        htmlCategoria += `<div style="display:flex; justify-content:space-between; margin-bottom:0.2rem;">
+          <span>${cat}: ${data.count}</span>
+          <strong>${formatarMoeda(data.valor)}</strong>
+        </div>`;
+      });
+      document.getElementById('totalPorCategoria').innerHTML = htmlCategoria || 'Nenhum dado';
+      
+      // Por Plataforma (Top 3)
+      const porPlataforma = {};
+      procs.forEach(p => {
+        const plat = p.plataforma || 'Sem plataforma';
+        if (!porPlataforma[plat]) porPlataforma[plat] = { count: 0, valor: 0 };
+        porPlataforma[plat].count++;
+        porPlataforma[plat].valor += p.valorFinal || 0;
+      });
+      
+      const topPlataformas = Object.entries(porPlataforma)
+        .sort((a, b) => b[1].valor - a[1].valor)
+        .slice(0, 3);
+      
+      let htmlPlataforma = '';
+      topPlataformas.forEach(([plat, data]) => {
+        htmlPlataforma += `<div style="display:flex; justify-content:space-between; margin-bottom:0.2rem;">
+          <span>${plat}: ${data.count}</span>
+          <strong>${formatarMoeda(data.valor)}</strong>
+        </div>`;
+      });
+      document.getElementById('totalPorPlataforma').innerHTML = htmlPlataforma || 'Nenhum dado';
+    }
+    
+    // Função para atualizar gráfico de performance
+    function atualizarGraficoPerformance(procs) {
+      const ctx = document.getElementById('chartPerformance');
+      if (!ctx) return;
+      
+      // Agrupar por mês
+      const porMes = {};
+      procs.forEach(p => {
+        if (!p.data) return;
+        const data = new Date(p.data + 'T00:00:00');
+        const mesAno = `${data.getMonth() + 1}/${data.getFullYear()}`;
+        
+        if (!porMes[mesAno]) porMes[mesAno] = { investido: 0, retorno: 0, lucro: 0 };
+        porMes[mesAno].investido += p.valorFreebet || 0;
+        porMes[mesAno].retorno += p.valorFinal || 0;
+        porMes[mesAno].lucro += (p.valorFinal || 0) - (p.valorFreebet || 0);
+      });
+      
+      // Ordenar por data
+      const mesesOrdenados = Object.keys(porMes).sort((a, b) => {
+        const [ma, ya] = a.split('/').map(Number);
+        const [mb, yb] = b.split('/').map(Number);
+        return ya === yb ? ma - mb : ya - yb;
+      });
+      
+      // Pegar últimos 6 meses
+      const ultimos6Meses = mesesOrdenados.slice(-6);
+      
+      const labels = ultimos6Meses.length ? ultimos6Meses : ['Sem dados'];
+      const dataInvestido = ultimos6Meses.map(mes => porMes[mes]?.investido || 0);
+      const dataRetorno = ultimos6Meses.map(mes => porMes[mes]?.retorno || 0);
+      const dataLucro = ultimos6Meses.map(mes => porMes[mes]?.lucro || 0);
+      
+      // Destruir gráfico anterior se existir
+      if (chartPerformance) {
+        chartPerformance.destroy();
+      }
+      
+      // Criar novo gráfico
+      chartPerformance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'Investido',
+              data: dataInvestido,
+              backgroundColor: 'rgba(245, 158, 11, 0.5)',
+              borderColor: 'rgba(245, 158, 11, 1)',
+              borderWidth: 1
+            },
+            {
+              label: 'Retorno',
+              data: dataRetorno,
+              backgroundColor: 'rgba(34, 197, 94, 0.5)',
+              borderColor: 'rgba(34, 197, 94, 1)',
+              borderWidth: 1
+            },
+            {
+              label: 'Lucro',
+              data: dataLucro,
+              backgroundColor: 'rgba(59, 130, 246, 0.5)',
+              borderColor: 'rgba(59, 130, 246, 1)',
+              borderWidth: 1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: true,
+              position: 'top'
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return context.dataset.label + ': ' + formatarMoeda(context.raw);
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: function(value) {
+                  return formatarMoeda(value);
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+    
+    // Função auxiliar para formatar moeda
+    function formatarMoeda(valor) {
+      return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+      }).format(valor || 0);
+    }
+    
+    // Atualizar aplicarFiltros para incluir estatísticas
+    const aplicarFiltrosOriginal = aplicarFiltros;
+    aplicarFiltros = function() {
+      aplicarFiltrosOriginal();
+      atualizarEstatisticasDetalhadas(procedimentosFiltrados);
+    };
+    
+    // Atualizar limparFiltros para incluir estatísticas
+    const limparFiltrosOriginal = limparFiltros;
+    limparFiltros = function() {
+      limparFiltrosOriginal();
+      atualizarEstatisticasDetalhadas(procedimentosSystem?.procedimentos);
+    };
+
+    // ================ SISTEMA DE FILTROS PARA PROCEDIMENTOS ================
+    
+    let procedimentosFiltrados = [];
+    
+    // Aplicar filtros
+    function aplicarFiltros() {
+      if (!procedimentosSystem) return;
+      
+      let filtrados = [...procedimentosSystem.procedimentos];
+      
+      // Filtro de busca
+      const searchText = document.getElementById('procSearchFilter').value.toLowerCase();
+      if (searchText) {
+        filtrados = filtrados.filter(p => {
+          return (
+            p.numero.toString().includes(searchText) ||
+            (p.plataforma && p.plataforma.toLowerCase().includes(searchText)) ||
+            (p.promocao && p.promocao.toLowerCase().includes(searchText)) ||
+            (p.refFreebet && p.refFreebet.toLowerCase().includes(searchText))
+          );
+        });
+      }
+      
+      // Filtro de período
+      const periodo = document.getElementById('procPeriodoFilter').value;
+      if (periodo !== 'todos') {
+        const hoje = new Date();
+        hoje.setHours(23, 59, 59, 999);
+        
+        let dataInicio = new Date();
+        
+        switch(periodo) {
+          case 'hoje':
+            dataInicio.setHours(0, 0, 0, 0);
+            break;
+          case 'semana':
+            dataInicio.setDate(hoje.getDate() - 7);
+            break;
+          case 'mes':
+            dataInicio.setMonth(hoje.getMonth() - 1);
+            break;
+          case '3meses':
+            dataInicio.setMonth(hoje.getMonth() - 3);
+            break;
+          case 'custom':
+            const customInicio = document.getElementById('procDataInicio').value;
+            const customFim = document.getElementById('procDataFim').value;
+            if (customInicio) dataInicio = new Date(customInicio + 'T00:00:00');
+            if (customFim) hoje.setTime(new Date(customFim + 'T23:59:59').getTime());
+            break;
+        }
+        
+        filtrados = filtrados.filter(p => {
+          const procData = new Date(p.data + 'T00:00:00');
+          return procData >= dataInicio && procData <= hoje;
+        });
+      }
+      
+      // Filtro de status
+      const status = document.getElementById('procStatusFilter').value;
+      if (status !== 'todos') {
+        filtrados = filtrados.filter(p => p.status === status);
+      }
+      
+      // Filtro de categoria
+      const categoria = document.getElementById('procCategoriaFilter').value;
+      if (categoria !== 'todos') {
+        filtrados = filtrados.filter(p => p.categoria === categoria);
+      }
+      
+      // Filtro de plataforma
+      const plataforma = document.getElementById('procPlataformaFilter').value;
+      if (plataforma !== 'todos') {
+        filtrados = filtrados.filter(p => p.plataforma === plataforma);
+      }
+      
+      // Atualiza contadores e valores
+      procedimentosFiltrados = filtrados;
+      const valorTotal = filtrados.reduce((sum, p) => sum + (p.valorFinal || 0), 0);
+      
+      document.getElementById('countFiltrados').textContent = filtrados.length;
+      document.getElementById('countTotal').textContent = procedimentosSystem.procedimentos.length;
+      document.getElementById('valorTotalFiltrado').textContent = 
+        new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valorTotal);
+      
+      // Renderiza resultados filtrados
+      procedimentosSystem.render(filtrados);
+    }
+    
+    // Limpar filtros
+    function limparFiltros() {
+      document.getElementById('procSearchFilter').value = '';
+      document.getElementById('procPeriodoFilter').value = 'todos';
+      document.getElementById('procStatusFilter').value = 'todos';
+      document.getElementById('procCategoriaFilter').value = 'todos';
+      document.getElementById('procPlataformaFilter').value = 'todos';
+      document.getElementById('procDataInicio').value = '';
+      document.getElementById('procDataFim').value = '';
+      document.getElementById('customDateRange').style.display = 'none';
+      
+      if (procedimentosSystem) {
+        procedimentosSystem.render();
+        document.getElementById('countFiltrados').textContent = procedimentosSystem.procedimentos.length;
+        document.getElementById('countTotal').textContent = procedimentosSystem.procedimentos.length;
+        
+        const valorTotal = procedimentosSystem.procedimentos.reduce((sum, p) => sum + (p.valorFinal || 0), 0);
+        document.getElementById('valorTotalFiltrado').textContent = 
+          new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valorTotal);
+      }
+    }
+    
+    // Exportar filtrados
+    function exportarFiltrados() {
+      const dados = procedimentosFiltrados.length ? procedimentosFiltrados : procedimentosSystem.procedimentos;
+      
+      const headers = ['Data', 'Número', 'Plataforma', 'Promoção', 'Categoria', 'Status', 'Ref Freebet', 'Valor Freebet', 'Valor Final'];
+      const rows = dados.map(p => [
+        p.data || '',
+        p.numero || '',
+        p.plataforma || '',
+        p.promocao || '',
+        p.categoria || '',
+        p.status || '',
+        p.refFreebet || '',
+        p.valorFreebet || 0,
+        p.valorFinal || 0
+      ]);
+      
+      const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
+      const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `procedimentos_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    }
+    
+    // Atualizar lista de plataformas dinamicamente
+    function atualizarListaPlataformas() {
+      if (!procedimentosSystem) return;
+      
+      const plataformas = [...new Set(procedimentosSystem.procedimentos
+        .map(p => p.plataforma)
+        .filter(p => p && p.trim())
+      )].sort();
+      
+      const select = document.getElementById('procPlataformaFilter');
+      if (select) {
+        const valorAtual = select.value;
+        select.innerHTML = '<option value="todos">Todas</option>';
+        plataformas.forEach(plat => {
+          select.innerHTML += `<option value="${plat}">${plat}</option>`;
+        });
+        select.value = valorAtual;
+      }
+    }
+    
+    // Evento para mostrar/ocultar período personalizado
+    document.addEventListener('DOMContentLoaded', () => {
+      const periodoSelect = document.getElementById('procPeriodoFilter');
+      if (periodoSelect) {
+        periodoSelect.addEventListener('change', (e) => {
+          const customDiv = document.getElementById('customDateRange');
+          if (customDiv) {
+            customDiv.style.display = e.target.value === 'custom' ? 'block' : 'none';
+          }
+        });
+      }
+      
+      // Auto aplicar filtros ao mudar qualquer campo
+      ['procSearchFilter', 'procStatusFilter', 'procCategoriaFilter', 'procPlataformaFilter'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.addEventListener('change', aplicarFiltros);
+        }
+      });
+      
+      // Busca com debounce
+      const searchInput = document.getElementById('procSearchFilter');
+      if (searchInput) {
+        let searchTimeout;
+        searchInput.addEventListener('input', (e) => {
+          clearTimeout(searchTimeout);
+          searchTimeout = setTimeout(aplicarFiltros, 300);
+        });
+      }
+    });
+
+    // Set default date
+    document.getElementById('procData').valueAsDate = new Date();
+  </script>
+</body>
+</html>
