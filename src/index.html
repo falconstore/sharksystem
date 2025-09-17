@@ -625,6 +625,8 @@
   <script src="js/procedimentos-completo.js"></script>
   <script src="js/clientes-completo.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+  <script src="js/arbipro-calculator.js"></script>
+  <script src="js/casas-regulamentadas.js"></script>
   <script>
     // Firebase Config
     firebase.initializeApp({
@@ -641,6 +643,16 @@
     let currentUser = null;
     let procedimentosSystem = null;
     let clientesSystem = null;
+
+    // ===== Variáveis dos novos módulos =====
+    let arbiProCalculator = null;
+    let casasRegulamentadas = null;
+
+    // ===== Inicializar novos módulos =====
+    // (conforme solicitado)
+    arbiProCalculator = new ArbiProCalculator();
+    casasRegulamentadas = new CasasRegulamentadas();
+    casasRegulamentadas.init();
 
     // ================ AUTENTICAÇÃO ================
     
@@ -897,6 +909,22 @@
         if (section) section.style.display = 'block';
         
         document.getElementById('pageTitle').textContent = e.target.textContent;
+
+        // ===== Dentro do event listener das tabs =====
+        // (conforme solicitado)
+        if (tab === 'arbipro') {
+          setTimeout(() => {
+            if (arbiProCalculator && typeof arbiProCalculator.init === 'function') {
+              arbiProCalculator.init();
+            }
+          }, 100);
+        } else if (tab === 'casas-regulamentadas') {
+          setTimeout(() => {
+            if (casasRegulamentadas && typeof casasRegulamentadas.onPageActivated === 'function') {
+              casasRegulamentadas.onPageActivated();
+            }
+          }, 100);
+        }
       }
     });
 
