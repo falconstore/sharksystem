@@ -1,0 +1,9 @@
+/* src/features/hotmart/controle.css */
+/* Esconde de vez o bloco/inputs de credenciais, caso existam no HTML */
+[data-hotmart-credentials],
+#hotmart-credentials,
+.hotmart-credentials { display: none !important; }
+
+/* Indicador de status (opcional) */
+#hotmart-status,
+[data-hotmart-status] { font-size: 12px; opacity: .85; }
