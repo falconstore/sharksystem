@@ -1,24 +1,39 @@
 // api/hotmart/sales.js
+// Lista Sales History com paginação completa e filtros opcionais.
+
 import { hotmartPaginated } from "./_client.js";
 
-// Mapeie os query params que sua Aba Controle Hotmart já envia (datas, status, produto, e-mail, etc.)
+/**
+ * Query params aceitos (todos opcionais):
+ * - product_id
+ * - buyer_email
+ * - offer_code
+ * - transaction_status (ex.: APPROVED, CANCELED...)
+ * - start_date (timestamp ms)
+ * - end_date   (timestamp ms)
+ * - limit      (corte no total a retornar, default: sem limite)
+ */
 export default async function handler(req, res) {
   try {
-    if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
+    if (req.method !== "GET") {
+      return res.status(405).json({ error: "Method not allowed" });
+    }
 
     const {
       product_id,
       buyer_email,
       offer_code,
-      transaction_status, // ex.: APPROVED, CANCELLED...
-      start_date, // epoch millis
-      end_date,   // epoch millis
-      limit,      // opcional: quantos itens no total
+      transaction_status,
+      start_date,
+      end_date,
+      limit,
     } = req.query;
 
-    const items = await hotmartPaginated("/docs/en/v1/sales/history", {
-      // OBS: alguns ambientes usam caminho /v1/sales/history — ajuste conforme seu endpoint base.
-      // A referência de "Sales History" está na doc. :contentReference[oaicite:5]{index=5}
+    // Caminho do endpoint Sales History segundo a doc.
+    // Ajuste apenas se sua conta exigir um prefixo diferente.
+    const path = "/docs/en/v1/sales/sales-history";
+
+    const items = await hotmartPaginated(path, {
       query: {
         product_id,
         buyer_email,
