@@ -1,21 +1,19 @@
 {
   "name": "freepro-system",
   "version": "1.0.0",
+  "private": true,
   "description": "FreePro - Sistema de Controle de Clientes",
-  "main": "src/index.html",
   "scripts": {
-    "dev": "npx serve src",
-    "build": "cp -r src/* public/",
-    "start": "npx serve public"
+    "dev": "npm run build && npx http-server public -p 5173 -c-1",
+    "build": "rm -rf public && mkdir -p public && cp -r src/* public/",
+    "start": "node -e \"console.log('Use Vercel para servir /public e /api')\""
   },
-  "keywords": [
-    "firebase",
-    "client-management"
-  ],
+  "keywords": ["firebase", "client-management"],
   "author": "",
   "license": "ISC",
+  "engines": { "node": "20.x" },
   "devDependencies": {
-    "serve": "^14.2.0"
+    "http-server": "^14.1.1"
   },
   "dependencies": {
     "dotenv": "^17.2.2"
