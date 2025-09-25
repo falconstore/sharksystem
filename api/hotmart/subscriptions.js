@@ -1,4 +1,8 @@
-// Assinaturas/assinantes com paginação total
+// api/hotmart/subscriptions.js
+// Subscriptions — lista assinantes/assinaturas com paginação.
+// Doc: Get subscriptions/subscribers — /v1/subscription/get-subscribers
+// https://developers.hotmart.com/docs/en/v1/subscription/get-subscribers/
+
 const { hotmartPaginated } = require("./_client.js");
 
 module.exports = async function handler(req, res) {
@@ -7,8 +11,7 @@ module.exports = async function handler(req, res) {
 
     const { status, plan_id, start_date, end_date, limit } = req.query;
 
-    // Ajuste o path conforme sua conta/documentação.
-    const path = "/docs/en/v1/subscription/get-subscribers";
+    const path = "/v1/subscription/get-subscribers";
 
     const items = await hotmartPaginated(path, {
       query: { status, plan_id, start_date, end_date },
