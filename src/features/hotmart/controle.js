@@ -1,14 +1,8 @@
 // src/features/hotmart/controle.js
-// Inicializa a aba Hotmart; usa HotmartBridge para buscar dados sem credenciais no front.
-
 (function () {
-  function q(sel) { return document.querySelector(sel); }
-  function val(sel) { const el = q(sel); return el ? el.value : ''; }
-  function parseDateOrUndef(sel) {
-    const s = val(sel);
-    const t = Date.parse(s);
-    return Number.isFinite(t) ? t : undefined;
-  }
+  const $ = (s) => document.querySelector(s);
+  const val = (s) => { const el = $(s); return el ? el.value : ''; };
+  const parseDateOrUndef = (s) => { const t = Date.parse(val(s)); return Number.isFinite(t) ? t : undefined; };
 
   async function carregarVendas() {
     const params = {
@@ -20,8 +14,9 @@
       offer_code: val('#hot-offer') || undefined,
     };
     const { items, count } = await window.HotmartBridge.listSales(params);
-    if (typeof renderTabelaVendas === 'function') renderTabelaVendas(items);
-    if (typeof showToast === 'function') showToast(`Hotmart: ${count} vendas carregadas`);
+    // usa os renderizadores do ui.js
+    if (typeof window.renderTabelaVendas === 'function') window.renderTabelaVendas(items);
+    const status = $('#hm-status'); if (status) status.textContent = `Vendas carregadas: ${count}`;
   }
 
   async function carregarAssinaturas() {
@@ -32,22 +27,23 @@
       end_date:   parseDateOrUndef('#sub-end'),
     };
     const { items, count } = await window.HotmartBridge.listSubscriptions(params);
-    if (typeof renderTabelaAssinaturas === 'function') renderTabelaAssinaturas(items);
-    if (typeof showToast === 'function') showToast(`Assinaturas: ${count} itens carregados`);
+    if (typeof window.renderTabelaAssinaturas === 'function') window.renderTabelaAssinaturas(items);
+    const status = $('#hm-status'); if (status) status.textContent = `Assinaturas carregadas: ${count}`;
   }
 
   async function init() {
     if (window.HotmartBridge?.init) window.HotmartBridge.init();
     try {
       await carregarVendas();
-      // await carregarAssinaturas();
+      // Se quiser: await carregarAssinaturas();
     } catch (e) {
       console.error(e);
-      if (typeof showError === 'function') showError(e.message);
+      alert(e.message);
     }
-    const btnVendas = q('#hot-refresh');
+
+    const btnVendas = $('#hot-refresh');
     if (btnVendas) btnVendas.addEventListener('click', () => carregarVendas());
-    const btnSubs = q('#sub-refresh');
+    const btnSubs = $('#sub-refresh');
     if (btnSubs) btnSubs.addEventListener('click', () => carregarAssinaturas());
   }
 
