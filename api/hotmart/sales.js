@@ -1,4 +1,8 @@
-// Sales History com paginação total
+// api/hotmart/sales.js
+// Sales History (lista vendas) com paginação completa.
+// Doc: Sales History (Hotmart Developers) — caminho /v1/sales/sales-history
+// https://developers.hotmart.com/docs/en/v1/sales/sales-history
+
 const { hotmartPaginated } = require("./_client.js");
 
 module.exports = async function handler(req, res) {
@@ -9,14 +13,13 @@ module.exports = async function handler(req, res) {
       product_id,
       buyer_email,
       offer_code,
-      transaction_status,
-      start_date,
-      end_date,
+      transaction_status,  // ex.: APPROVED, CANCELED, etc.
+      start_date,          // epoch ms
+      end_date,            // epoch ms
       limit
     } = req.query;
 
-    // Ajuste o path conforme sua conta/documentação.
-    const path = "/docs/en/v1/sales/sales-history";
+    const path = "/v1/sales/sales-history";
 
     const items = await hotmartPaginated(path, {
       query: { product_id, buyer_email, offer_code, transaction_status, start_date, end_date },
