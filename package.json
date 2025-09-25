@@ -8,10 +8,16 @@
     "build": "cp -r src/* public/",
     "start": "npx serve public"
   },
-  "keywords": ["firebase", "client-management"],
+  "keywords": [
+    "firebase",
+    "client-management"
+  ],
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "serve": "^14.2.0"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.2"
   }
 }
