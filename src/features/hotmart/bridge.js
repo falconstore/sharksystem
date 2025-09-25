@@ -1,6 +1,5 @@
 // src/features/hotmart/bridge.js
-// Ponte do FRONT para as funções serverless da Vercel (/api/hotmart/*).
-// Esconde inputs de credenciais e padroniza os fetches.
+// Ponte do FRONT para /api/hotmart/* (token e paginação geridos no servidor)
 
 (function () {
   const SELECTORS = {
@@ -16,13 +15,8 @@
   }
   function hide(node) { if (node) node.style.display = 'none'; }
   function disable(node) { if (node) { node.disabled = true; node.setAttribute('aria-disabled','true'); } }
+  function setStatus(msg) { const el = $(SELECTORS.statusEl); if (el) el.textContent = msg; }
 
-  function setStatus(msg) {
-    const el = $(SELECTORS.statusEl);
-    if (el) el.textContent = msg;
-  }
-
-  // ---- API calls ----
   async function apiGet(path, params = {}) {
     const qs = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => {
@@ -33,32 +27,26 @@
 
     const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      const msg = data?.error || `Erro ao chamar ${path}`;
-      throw new Error(msg);
-    }
-    return data;
+    if (!res.ok) throw new Error(data?.error || `Erro ao chamar ${path}`);
+    return data; // { items, count }
   }
 
   async function listSales(params = {}) {
-    return apiGet('/api/hotmart/sales', params); // { items, count }
+    return apiGet('/api/hotmart/sales', params);
   }
   async function listSubscriptions(params = {}) {
-    return apiGet('/api/hotmart/subscriptions', params); // { items, count }
+    return apiGet('/api/hotmart/subscriptions', params);
   }
 
-  // ---- UI init (hide old credential flow) ----
   function initCredentiallessUI() {
-    // Esconde bloco / inputs / botão "Conectar" do fluxo antigo (se existirem)
     hide($(SELECTORS.credBlock));
     disable($(SELECTORS.clientId));
     disable($(SELECTORS.clientSec));
     hide($(SELECTORS.btnConnect));
-
-    setStatus('Conectado via servidor (OAuth2)'); // token gerenciado no backend
+    setStatus('Conectado via servidor (OAuth2)');
   }
 
-  // Expõe no global para seu código atual usar sem refactor pesado
+  // Expor API p/ código existente
   window.HotmartBridge = {
     init: initCredentiallessUI,
     listSales,
