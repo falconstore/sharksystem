@@ -380,18 +380,17 @@
 <link rel="stylesheet" href="/features/hotmart/controle.css">
 
 <!-- ... -->
-
-<!-- antes de </body> -->
+<!-- seus scripts existentes -->
 <script src="js/procedimentos-completo.js" defer></script>
 <script src="js/clientes-completo.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js" defer></script>
 <script src="js/arbipro-calculator.js" defer></script>
 <script src="js/casas-regulamentadas.js" defer></script>
 
-<!-- remova o legado se não precisar mais -->
+<!-- (legado) não usar para evitar conflito -->
 <!-- <script src="js/hotmart-integration.js" defer></script> -->
 
-<!-- Hotmart UI -->
+<!-- Hotmart UI (ordem importa; todos com defer) -->
 <script src="/features/hotmart/ui.js" defer></script>
 <script src="/features/hotmart/bridge.js" defer></script>
 <script src="/features/hotmart/controle.js" defer></script>
