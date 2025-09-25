@@ -376,16 +376,23 @@
     </main>
   </div>
 
-  <script src="js/procedimentos-completo.js"></script>
-  <script src="js/clientes-completo.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
-  <script src="js/arbipro-calculator.js"></script>
-  <script src="js/casas-regulamentadas.js"></script>
-  <script src="js/hotmart-integration.js"></script>
-  <link rel="stylesheet" href="/features/hotmart/controle.css">
-  <script src="/features/hotmart/bridge.js"></script>
-  <script src="/features/hotmart/controle.js"></script>
+ <!-- no <head> -->
+<link rel="stylesheet" href="/features/hotmart/controle.css">
 
+<!-- antes de </body> -->
+<script src="js/procedimentos-completo.js" defer></script>
+<script src="js/clientes-completo.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js" defer></script>
+<script src="js/arbipro-calculator.js" defer></script>
+<script src="js/casas-regulamentadas.js" defer></script>
+
+<!-- (opcional) legado — se não usa mais, remova -->
+<!-- <script src="js/hotmart-integration.js" defer></script> -->
+
+<!-- Hotmart UI -->
+<script src="/features/hotmart/ui.js" defer></script>
+<script src="/features/hotmart/bridge.js" defer></script>
+<script src="/features/hotmart/controle.js" defer></script>
   <script>
     firebase.initializeApp({
       apiKey: "AIzaSyC6-O6BnUXGzwXwcRM_wRYwGUNFuRpT7NI",
