@@ -1,9 +1,8 @@
 /* src/features/hotmart/controle.css */
-/* Esconde de vez o bloco/inputs de credenciais, caso existam no HTML */
-[data-hotmart-credentials],
-#hotmart-credentials,
-.hotmart-credentials { display: none !important; }
+.hotmart-table{width:100%;border-collapse:collapse;font-size:14px}
+.hotmart-table thead th{position:sticky;top:0;background:#0f1720;color:#e8f0ff;text-align:left;padding:8px;border-bottom:1px solid #1f2a36}
+.hotmart-table tbody td{padding:8px;border-bottom:1px solid #1f2a36;color:#cbd5e1}
+.table-scroll{overflow:auto;border:1px solid #1f2a36;border-radius:12px}
 
-/* Indicador de status (opcional) */
-#hotmart-status,
-[data-hotmart-status] { font-size: 12px; opacity: .85; }
+/* Esconde o bloco de credenciais legado, se existir */
+[data-hotmart-credentials], #hotmart-credentials, .hotmart-credentials { display: none !important; }
