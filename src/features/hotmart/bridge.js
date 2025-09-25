@@ -1,30 +1,17 @@
 // src/features/hotmart/bridge.js
-// Ponte do FRONT para /api/hotmart/* com parse robusto (não quebra com HTML).
-
 (function () {
-  const SELECTORS = {
-    credBlock: '[data-hotmart-credentials], #hotmart-credentials, .hotmart-credentials',
-    clientId:  'input[name="hotmart_client_id"], #hotmart_client_id',
-    clientSec: 'input[name="hotmart_client_secret"], #hotmart_client_secret',
-    statusEl:  '[data-hotmart-status], #hotmart-status',
-    btnConnect:'[data-hotmart-connect], #hotmart-connect',
-  };
+  const $ = (s, r = document) => { try { return r.querySelector(s); } catch { return null; } };
 
-  function $(sel, root = document) {
-    try { return root.querySelector(sel); } catch { return null; }
+  function setStatus(msg) {
+    const el = $('[data-hotmart-status], #hotmart-status') || $('#hm-status');
+    if (el) el.textContent = msg;
   }
-  function hide(node) { if (node) node.style.display = 'none'; }
-  function disable(node) { if (node) { node.disabled = true; node.setAttribute('aria-disabled','true'); } }
-  function setStatus(msg) { const el = $(SELECTORS.statusEl); if (el) el.textContent = msg; }
 
   async function parseResponse(res, url) {
-    const ct = res.headers.get("content-type") || "";
-    if (ct.includes("application/json")) {
-      return res.json();
-    }
+    const ct = res.headers.get('content-type') || '';
+    if (ct.includes('application/json')) return res.json();
     const text = await res.text();
-    // Se veio HTML (erro), lance conteúdo no erro para log
-    throw new Error(`Resposta não-JSON em ${url}: ${text.slice(0, 200)}`);
+    throw new Error(`Resposta não-JSON em ${url}: ${text.slice(0,200)}`);
   }
 
   async function apiGet(path, params = {}) {
@@ -36,45 +23,34 @@
     const url = qs.toString() ? `${path}?${qs}` : path;
 
     const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-    let data;
-    try {
-      data = await parseResponse(res, url);
-    } catch (e) {
-      // Log detalhado no console do browser
-      console.error("API parse error:", e);
-      throw new Error((data && data.error) || e.message || `Erro ao chamar ${path}`);
-    }
-    if (!res.ok) {
-      throw new Error(data?.error || `Erro ao chamar ${path}`);
-    }
+    const data = await parseResponse(res, url);
+    if (!res.ok) throw new Error(data?.error || `Erro em ${path}`);
     return data;
   }
 
-  async function listSales(params = {}) {
-    return apiGet('/api/hotmart/sales', params);
-  }
-  async function listSubscriptions(params = {}) {
-    return apiGet('/api/hotmart/subscriptions', params);
-  }
+  async function listSales(params = {}) { return apiGet('/api/hotmart/sales', params); }
+  async function listSubscriptions(params = {}) { return apiGet('/api/hotmart/subscriptions', params); }
 
   function initCredentiallessUI() {
-    hide($(SELECTORS.credBlock));
-    disable($(SELECTORS.clientId));
-    disable($(SELECTORS.clientSec));
-    hide($(SELECTORS.btnConnect));
+    // esconder bloco de credenciais (se existir)
+    const hideCandidates = [
+      '[data-hotmart-credentials]','#hotmart-credentials','.hotmart-credentials',
+      'input[name="hotmart_client_id"]', '#hotmartClientSecret', '#hotmartBasicToken'
+    ];
+    hideCandidates.forEach(sel => {
+      document.querySelectorAll(sel).forEach(node => {
+        const box = node.closest('form, .card, .box, .container, section, fieldset, .row, .col') || node;
+        box.style.display = 'none';
+      });
+    });
     setStatus('Conectado via servidor (OAuth2)');
   }
 
-  // Expor API p/ código existente
-  window.HotmartBridge = {
-    init: initCredentiallessUI,
-    listSales,
-    listSubscriptions,
-  };
+  window.HotmartBridge = { init: initCredentiallessUI, listSales, listSubscriptions };
 
-  // Stub para HTML legado: evita "connectHotmart is not defined"
+  // Evita "connectHotmart is not defined" do HTML legado
   window.connectHotmart = function () {
-    console.warn("connectHotmart() legado chamado — fluxo agora é automático via servidor.");
+    console.warn('Fluxo legado: connectHotmart() — agora a conexão é automática via server.');
     setStatus('Conectado via servidor (OAuth2)');
     return false;
   };
