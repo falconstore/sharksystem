@@ -1,31 +1,63 @@
-// src/features/hotmart/controle.js (exemplo mínimo)
-async function fetchSales(params = {}) {
-  const qs = new URLSearchParams(params).toString();
-  const res = await fetch(`/api/hotmart/sales?${qs}`);
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Erro ao buscar vendas");
-  return data; // { items, count }
-}
+// src/features/hotmart/controle.js
+// Trecho de INIT + chamadas; mantenha suas funções de render (renderTabelaVendas, etc.)
 
-// Exemplo de uso (no onLoad/onClick)
-(async () => {
-  try {
-    const start_date = Date.parse(document.querySelector("#hot-start").value || "");
-    const end_date   = Date.parse(document.querySelector("#hot-end").value || "");
-    const product_id = document.querySelector("#hot-product")?.value || undefined;
-    const transaction_status = document.querySelector("#hot-status")?.value || undefined;
-
-    const { items, count } = await fetchSales({
-      start_date: isNaN(start_date) ? undefined : start_date,
-      end_date:   isNaN(end_date)   ? undefined : end_date,
-      product_id,
-      transaction_status,
-    });
-
-    renderTabelaVendas(items);  // reaproveite sua função atual
-    showToast?.(`Hotmart: ${count} registros carregados`);
-  } catch (e) {
-    showError?.(e.message);
-    console.error(e);
+(function () {
+  function val(sel) {
+    const el = document.querySelector(sel);
+    return el ? el.value : '';
   }
+  function parseDateOrUndef(sel) {
+    const s = val(sel);
+    const t = Date.parse(s);
+    return Number.isFinite(t) ? t : undefined;
+  }
+
+  async function carregarVendas() {
+    const params = {
+      start_date: parseDateOrUndef('#hot-start'),
+      end_date:   parseDateOrUndef('#hot-end'),
+      product_id: val('#hot-product') || undefined,
+      transaction_status: val('#hot-status') || undefined,
+      // você pode adicionar buyer_email, offer_code, etc.
+    };
+    const { items, count } = await window.HotmartBridge.listSales(params);
+    // reaproveita sua função atual de renderização:
+    if (typeof renderTabelaVendas === 'function') renderTabelaVendas(items);
+    if (typeof showToast === 'function') showToast(`Hotmart: ${count} registros carregados`);
+  }
+
+  async function carregarAssinaturas() {
+    const params = {
+      status:   val('#sub-status') || undefined,
+      plan_id:  val('#sub-plan') || undefined,
+      start_date: parseDateOrUndef('#sub-start'),
+      end_date:   parseDateOrUndef('#sub-end'),
+    };
+    const { items, count } = await window.HotmartBridge.listSubscriptions(params);
+    if (typeof renderTabelaAssinaturas === 'function') renderTabelaAssinaturas(items);
+    if (typeof showToast === 'function') showToast(`Assinaturas: ${count} itens carregados`);
+  }
+
+  async function init() {
+    // 1) Neutraliza o fluxo antigo de credenciais e mostra status "conectado via servidor"
+    if (window.HotmartBridge?.init) window.HotmartBridge.init();
+
+    // 2) Carrega dados iniciais
+    try {
+      await carregarVendas();
+      // Se quiser carregar assinaturas na largada, descomente:
+      // await carregarAssinaturas();
+    } catch (e) {
+      console.error(e);
+      if (typeof showError === 'function') showError(e.message);
+    }
+
+    // 3) Eventos dos botões/inputs existentes
+    const btnAtualizar = document.querySelector('#hot-refresh');
+    if (btnAtualizar) btnAtualizar.addEventListener('click', () => carregarVendas());
+    const btnSubAtualizar = document.querySelector('#sub-refresh');
+    if (btnSubAtualizar) btnSubAtualizar.addEventListener('click', () => carregarAssinaturas());
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
 })();
