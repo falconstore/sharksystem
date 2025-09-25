@@ -1,5 +1,5 @@
 // src/features/hotmart/bridge.js
-// Ponte do FRONT para /api/hotmart/* (token e paginação geridos no servidor)
+// Ponte do FRONT para /api/hotmart/* com parse robusto (não quebra com HTML).
 
 (function () {
   const SELECTORS = {
@@ -17,6 +17,16 @@
   function disable(node) { if (node) { node.disabled = true; node.setAttribute('aria-disabled','true'); } }
   function setStatus(msg) { const el = $(SELECTORS.statusEl); if (el) el.textContent = msg; }
 
+  async function parseResponse(res, url) {
+    const ct = res.headers.get("content-type") || "";
+    if (ct.includes("application/json")) {
+      return res.json();
+    }
+    const text = await res.text();
+    // Se veio HTML (erro), lance conteúdo no erro para log
+    throw new Error(`Resposta não-JSON em ${url}: ${text.slice(0, 200)}`);
+  }
+
   async function apiGet(path, params = {}) {
     const qs = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => {
@@ -26,9 +36,18 @@
     const url = qs.toString() ? `${path}?${qs}` : path;
 
     const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data?.error || `Erro ao chamar ${path}`);
-    return data; // { items, count }
+    let data;
+    try {
+      data = await parseResponse(res, url);
+    } catch (e) {
+      // Log detalhado no console do browser
+      console.error("API parse error:", e);
+      throw new Error((data && data.error) || e.message || `Erro ao chamar ${path}`);
+    }
+    if (!res.ok) {
+      throw new Error(data?.error || `Erro ao chamar ${path}`);
+    }
+    return data;
   }
 
   async function listSales(params = {}) {
@@ -51,5 +70,12 @@
     init: initCredentiallessUI,
     listSales,
     listSubscriptions,
+  };
+
+  // Stub para HTML legado: evita "connectHotmart is not defined"
+  window.connectHotmart = function () {
+    console.warn("connectHotmart() legado chamado — fluxo agora é automático via servidor.");
+    setStatus('Conectado via servidor (OAuth2)');
+    return false;
   };
 })();
