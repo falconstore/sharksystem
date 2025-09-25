@@ -3,7 +3,7 @@ async function fetchSales(params = {}) {
   const qs = new URLSearchParams(params).toString();
   const res = await fetch(`/api/hotmart/sales?${qs}`);
   const data = await res.json();
-  if (!res.ok) thr || "Erro ao buscar vendas");
+  if (!res.ok) throw new Error(data.error || "Erro ao buscar vendas");
   return data; // { items, count }
 }
 
