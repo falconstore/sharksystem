@@ -1,15 +1,13 @@
 // api/hotmart/_client.js
-// Cliente Hotmart (server) — OAuth2 Client Credentials + cache de token + paginação.
-// Mantém credenciais no servidor (Vercel) e evita CORS no front.
+// Hotmart (server): OAuth2 Client Credentials + cache de token + GET + paginação.
 
 const {
   HOTMART_CLIENT_ID,
   HOTMART_CLIENT_SECRET,
-  // Token URL real (padrão). Pode variar por região/ambiente; sobrescreva por env se precisar.
-  // Fonte: guias de integração mostram api-sec-vlc.hotmart.com/security/oauth/token.
+  // Token real (região VLC). Pode mudar; deixe configurável por env.
   HOTMART_TOKEN_URL = "https://api-sec-vlc.hotmart.com/security/oauth/token",
-  // Base dos endpoints REST (os caminhos reais começam com /v1/...):
-  // Doc oficial lista Sales History e Subscriptions sob /v1.
+  // MUITO IMPORTANTE: API base de dados (documentação aponta /v1/...).
+  // Se sua conta usar outro host/região, ajuste via env.
   HOTMART_API_BASE = "https://developers.hotmart.com"
 } = process.env;
 
@@ -17,10 +15,9 @@ let cachedToken = null; // { access_token, token_type, expires_at }
 
 async function fetchToken() {
   if (!HOTMART_CLIENT_ID || !HOTMART_CLIENT_SECRET) {
-    throw new Error("Env HOTMART_CLIENT_ID/HOTMART_CLIENT_SECRET não configurados.");
+    throw new Error("HOTMART_CLIENT_ID/HOTMART_CLIENT_SECRET ausentes");
   }
   const basic = Buffer.from(`${HOTMART_CLIENT_ID}:${HOTMART_CLIENT_SECRET}`).toString("base64");
-
   const body = new URLSearchParams();
   body.set("grant_type", "client_credentials");
 
@@ -36,11 +33,12 @@ async function fetchToken() {
 
   if (!res.ok) {
     const t = await res.text().catch(() => "");
-    throw new Error(`Hotmart OAuth error: ${res.status} ${t}`);
+    console.error("OAuth error:", res.status, t);
+    throw new Error(`Hotmart OAuth error: ${res.status}`);
   }
 
-  const json = await res.json(); // { access_token, token_type, expires_in, ... }
-  const expires_at = Date.now() + Math.max(0, (json.expires_in ?? 1800) - 60) * 1000; // renova 1min antes
+  const json = await res.json();
+  const expires_at = Date.now() + Math.max(0, (json.expires_in ?? 1800) - 60) * 1000;
   cachedToken = { ...json, expires_at };
   return cachedToken;
 }
@@ -60,24 +58,31 @@ async function hotmartGet(path, { query = {} } = {}) {
   }
 
   const url = `${HOTMART_API_BASE}${path}${qs.toString() ? "?" + qs.toString() : ""}`;
-
   const res = await fetch(url, {
     method: "GET",
-    headers: {
-      "Authorization": `Bearer ${access_token}`,
-      "Accept": "application/json"
-    }
+    headers: { "Authorization": `Bearer ${access_token}`, "Accept": "application/json" }
   });
 
   if (!res.ok) {
     const t = await res.text().catch(() => "");
-    throw new Error(`Hotmart API GET ${path} → ${res.status} ${t}`);
+    console.error("Hotmart API error:", res.status, url, t.slice(0, 400));
+    // Se a Hotmart retornar HTML (erro), devolvemos texto pro caller decidir
+    // mas mantendo a exceção pra cair no handler e voltar JSON de erro ao front.
+    throw new Error(`Hotmart API GET ${path} → ${res.status}`);
   }
 
+  // Tenta JSON, mas se vier algo diferente por erro de proxy, faz fallback pra texto
+  const ct = res.headers.get("content-type") || "";
+  if (!ct.includes("application/json")) {
+    const text = await res.text();
+    try { return JSON.parse(text); } catch {
+      console.error("Resposta não-JSON da Hotmart:", url, text.slice(0, 400));
+      throw new Error("Resposta não-JSON da Hotmart");
+    }
+  }
   return res.json();
 }
 
-// Varre paginação (page_token/next_page_token + max_results)
 async function hotmartPaginated(path, { query = {}, maxPerPage = 1000, limit = Infinity } = {}) {
   let items = [];
   let page_token = query.page_token || null;
